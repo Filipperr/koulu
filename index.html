@@ -210,13 +210,13 @@
   <body>
     <noscript>Tämä sivusto tarvitsee JavaScriptin.</noscript>
     <script>
-      const TEKIJAN_KOODI = "KOELU";
       const OPETTAJAN_KOODI = "123";
       const KEYS = {
         users: "kouluUsers",
         session: "kouluSession",
         messages: "kouluViestit",
         teacherOk: "kouluTeacherOk",
+        adminCode: "kouluAdminCode",
       };
 
       const SUBJECTS = [
@@ -291,6 +291,10 @@
       function saveMessages(messages) { saveJson(KEYS.messages, messages); }
       function loadTeacherUnlocked() { return readMirror(KEYS.teacherOk) === "1"; }
       function saveTeacherUnlocked(ok) { ok ? writeMirror(KEYS.teacherOk, "1") : removeMirror(KEYS.teacherOk); }
+      function normalizeCode(code) { return String(code || "").trim().toUpperCase().replace(/\s+/g, ""); }
+      function loadAdminCode() { return readMirror(KEYS.adminCode) || ""; }
+      function saveAdminCode(code) { writeMirror(KEYS.adminCode, normalizeCode(code)); }
+      function hasAdminCode() { return normalizeCode(loadAdminCode()).length > 0; }
 
       function normalizeName(name) { return String(name || "").trim().toLowerCase(); }
       function currentUser() { return loadSession()?.name || null; }
@@ -305,7 +309,9 @@
 
       function registerUserWithTekija({ tekijaKoodi, name, code }) {
         const cleaned = String(tekijaKoodi || "").trim().toUpperCase().replace(/\s+/g, "");
-        if (!new Set([TEKIJAN_KOODI, "KOELU", "KOUELU"]).has(cleaned)) return { ok: false, error: "Valtuutus ei täsmää." };
+        const adminCode = normalizeCode(loadAdminCode());
+        if (!adminCode) return { ok: false, error: "Ylläpitäjäkoodia ei ole vielä luotu." };
+        if (cleaned !== adminCode) return { ok: false, error: "Ylläpitäjäkoodi ei täsmää." };
         const displayName = String(name || "").trim();
         const userCode = String(code || "").trim();
         if (!displayName || !userCode) return { ok: false, error: "Anna nimi ja salasana." };
@@ -379,11 +385,15 @@
       }
 
       function renderLogin() {
-        return `<main><div class="login-hero panel"><h1>Tervetuloa Kouluaan</h1><p class="hint">Kaikki koodi on nyt samassa index.html-tiedostossa. Demotunnus: Demo / demo123.</p></div><div class="panel"><h2>Kirjaudu</h2><form id="form-login"><div class="field"><label for="login-name">Nimi</label><input id="login-name" autocomplete="username" required /></div><div class="field"><label for="login-code">Salasana</label><input id="login-code" type="password" autocomplete="current-password" required /></div><p class="error" id="login-err" hidden></p><button type="submit" class="btn">Kirjaudu sisään</button><p class="hint" style="margin-top:1rem;">Ei tunnusta? <a href="#/luo-tunnus">Luo tunnus ylläpitäjän valtuutuksella</a>.</p></form></div></main>`;
+        return `<main><div class="login-hero panel"><h1>Tervetuloa Kouluaan</h1><p class="hint">Kaikki koodi on samassa index.html-tiedostossa. Ensimmäinen kävijä luo ylläpitäjäkoodin ennen käyttöä.</p></div><div class="panel"><h2>Kirjaudu</h2><form id="form-login"><div class="field"><label for="login-name">Nimi</label><input id="login-name" autocomplete="username" required /></div><div class="field"><label for="login-code">Salasana</label><input id="login-code" type="password" autocomplete="current-password" required /></div><p class="error" id="login-err" hidden></p><button type="submit" class="btn">Kirjaudu sisään</button><p class="hint" style="margin-top:1rem;">Ei tunnusta? <a href="#/luo-tunnus">Luo tunnus ylläpitäjäkoodilla</a>.</p></form></div></main>`;
+      }
+
+      function renderAdminSetup() {
+        return `<main><div class="login-hero panel"><h1>Luo ylläpitäjäkoodi</h1><p class="hint">Tätä sivustoa ei ole vielä otettu käyttöön tässä selaimessa. Ensimmäinen käyttäjä saa luoda ylläpitäjäkoodin, jota tarvitaan uusien tunnusten tekemiseen.</p></div><div class="panel"><h2>Ensimmäinen käyttöönotto</h2><form id="form-admin-setup"><div class="field"><label for="setup-code">Uusi ylläpitäjäkoodi</label><input id="setup-code" type="password" autocomplete="new-password" minlength="3" required /></div><div class="field"><label for="setup-code2">Kirjoita koodi uudelleen</label><input id="setup-code2" type="password" autocomplete="new-password" minlength="3" required /></div><p class="error" id="setup-err" hidden></p><button class="btn" type="submit">Tallenna ylläpitäjäkoodi</button></form><p class="hint" style="margin-top:1rem;">Muista koodi. Sitä ei näytetä sivulla tallennuksen jälkeen.</p></div></main>`;
       }
 
       function renderRegister() {
-        return `<main><div class="panel"><h1>Luo uusi tunnus</h1><p>Anna ylläpitäjän valtuutus ja valitse nimi sekä salasana.</p><form id="form-register"><div class="field"><label for="reg-tekija">Ylläpitäjän valtuutus</label><input id="reg-tekija" type="password" required /></div><div class="field"><label for="reg-name">Näyttönimi</label><input id="reg-name" required /></div><div class="field"><label for="reg-code">Salasana</label><input id="reg-code" type="password" required /></div><p class="error" id="reg-err" hidden></p><p class="success" id="reg-ok" hidden></p><button type="submit" class="btn">Tallenna tunnus</button><p><a href="#/kirjaudu">Takaisin kirjautumiseen</a></p></form></div></main>`;
+        return `<main><div class="panel"><h1>Luo uusi tunnus</h1><p>Anna ylläpitäjäkoodi ja valitse nimi sekä salasana.</p><form id="form-register"><div class="field"><label for="reg-tekija">Ylläpitäjäkoodi</label><input id="reg-tekija" type="password" required /></div><div class="field"><label for="reg-name">Näyttönimi</label><input id="reg-name" required /></div><div class="field"><label for="reg-code">Salasana</label><input id="reg-code" type="password" required /></div><p class="error" id="reg-err" hidden></p><p class="success" id="reg-ok" hidden></p><button type="submit" class="btn">Tallenna tunnus</button><p><a href="#/kirjaudu">Takaisin kirjautumiseen</a></p></form></div></main>`;
       }
 
       function renderEtusivu() {
@@ -476,6 +486,12 @@
         const { parts } = parseHash();
         const route = parts[0] || "etusivu";
 
+        if (!hasAdminCode()) {
+          document.body.innerHTML = renderHeader(false) + renderAdminSetup();
+          bindAdminSetup();
+          return;
+        }
+
         if (!user && route !== "kirjaudu" && route !== "luo-tunnus") {
           document.body.innerHTML = renderHeader(false) + renderLogin();
           bindLogin();
@@ -538,6 +554,29 @@
             return;
           }
           setHash("/etusivu");
+          render();
+        });
+      }
+
+      function bindAdminSetup() {
+        document.getElementById("form-admin-setup")?.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const err = document.getElementById("setup-err");
+          const code = document.getElementById("setup-code").value;
+          const code2 = document.getElementById("setup-code2").value;
+          if (normalizeCode(code).length < 3) {
+            err.textContent = "Ylläpitäjäkoodissa pitää olla vähintään 3 merkkiä.";
+            err.hidden = false;
+            return;
+          }
+          if (normalizeCode(code) !== normalizeCode(code2)) {
+            err.textContent = "Koodit eivät täsmää.";
+            err.hidden = false;
+            return;
+          }
+          saveAdminCode(code);
+          err.hidden = true;
+          setHash("/luo-tunnus");
           render();
         });
       }
