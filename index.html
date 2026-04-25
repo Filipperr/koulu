@@ -322,14 +322,6 @@
         return { ok: true, name: displayName };
       }
 
-      function seedDemoUserIfEmpty() {
-        const users = loadUsers();
-        if (users.length === 0) {
-          users.push({ name: "Demo", code: "demo123" });
-          saveUsers(users);
-        }
-      }
-
       function uid() {
         return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "m_" + Date.now() + "_" + Math.random().toString(36).slice(2);
       }
@@ -847,7 +839,6 @@
         draw();
       }
 
-      seedDemoUserIfEmpty();
       window.addEventListener("hashchange", render);
       render();
     </script>
